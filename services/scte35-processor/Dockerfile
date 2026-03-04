@@ -1,9 +1,10 @@
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl \
-        tsduck \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
+    curl -o /tmp/install-tsduck.sh https://tsduck.io/install.sh && \
+    bash /tmp/install-tsduck.sh && \
+    rm -rf /var/lib/apt/lists/* /tmp/install-tsduck.sh
 
 WORKDIR /app
 
