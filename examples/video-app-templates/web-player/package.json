@@ -1,0 +1,10 @@
+{
+  "name": "video-platform-web-player",
+  "version": "1.0.0",
+  "description": "HLS/DASH web player with ad integration",
+  "scripts": {
+    "start": "python3 -m http.server 8888",
+    "build": "echo 'No build needed for vanilla JS'"
+  },
+  "dependencies": {}
+}

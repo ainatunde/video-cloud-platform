@@ -1,0 +1,1 @@
+{"name":"hevc","codec":"libx265","preset":"fast","crf":28,"profile":"main","x265_opts":"keyint=60:min-keyint=60:scenecut=0:bframes=4"}

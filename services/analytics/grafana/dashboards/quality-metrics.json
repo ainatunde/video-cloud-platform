@@ -1,0 +1,166 @@
+{
+  "uid": "quality-metrics",
+  "title": "Quality Metrics",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "stream_id",
+        "label": "Stream",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "query": "SELECT DISTINCT stream_id FROM stream_metrics ORDER BY 1",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Avg Startup Time (ms)",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [
+        {
+          "rawSql": "SELECT AVG(startup_time_ms) AS value FROM stream_metrics WHERE $__timeFilter(time) AND startup_time_ms > 0",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2000 },
+              { "color": "red", "value": 5000 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Buffering Ratio",
+      "type": "gauge",
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [
+        {
+          "rawSql": "SELECT AVG(buffer_ratio) AS value FROM stream_metrics WHERE $__timeFilter(time)",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 0.2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.05 },
+              { "color": "red", "value": 0.1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 4 }
+    },
+    {
+      "id": 3,
+      "title": "Packet Loss Over Time",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [
+        {
+          "rawSql": "SELECT time_bucket('1m', time) AS time, stream_id, AVG(packet_loss) AS avg_packet_loss FROM stream_metrics WHERE $__timeFilter(time) GROUP BY 1, 2 ORDER BY 1",
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 10
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 4 }
+    },
+    {
+      "id": 4,
+      "title": "Jitter Over Time",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [
+        {
+          "rawSql": "SELECT time_bucket('1m', time) AS time, stream_id, AVG(jitter_ms) AS avg_jitter FROM stream_metrics WHERE $__timeFilter(time) GROUP BY 1, 2 ORDER BY 1",
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 4 }
+    },
+    {
+      "id": 5,
+      "title": "Latency Distribution",
+      "type": "histogram",
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [
+        {
+          "rawSql": "SELECT latency_ms AS value FROM stream_metrics WHERE $__timeFilter(time) AND latency_ms IS NOT NULL AND latency_ms > 0 ORDER BY time",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "bucketSize": "auto",
+        "bucketOffset": 0,
+        "combine": false,
+        "fillOpacity": 80,
+        "gradientMode": "none",
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 }
+    }
+  ]
+}

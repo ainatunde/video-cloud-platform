@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yolo-analyzer
+  namespace: video-platform
+  labels:
+    app: yolo-analyzer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: yolo-analyzer
+  template:
+    metadata:
+      labels:
+        app: yolo-analyzer
+    spec:
+      containers:
+        - name: yolo-analyzer
+          image: video-platform/yolo-analyzer:latest
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: YOLO_MODEL
+              value: "yolov8n.pt"
+            - name: GPU_ENABLED
+              value: "false"
+            - name: MODEL_PATH
+              value: "/models"
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            - name: yolo-models
+              mountPath: /models
+      volumes:
+        - name: yolo-models
+          persistentVolumeClaim:
+            claimName: yolo-models-pvc

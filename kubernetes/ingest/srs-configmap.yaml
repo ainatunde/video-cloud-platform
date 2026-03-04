@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: srs-config
+  namespace: video-platform
+data:
+  srs.conf: |
+    # SRS (Simple Realtime Server) — production configuration
+    # Supports: RTMP ingest, HLS output, HTTP-FLV, HTTP API, SRT
+
+    listen              1935;
+    max_connections     1000;
+    srs_log_tank        console;
+    srs_log_level       warn;
+
+    # ── HTTP API (management + health) ───────────────────────────────────────────
+    http_api {
+        enabled         on;
+        listen          1985;
+    }
+
+    # ── HTTP Server (HLS segment delivery) ───────────────────────────────────────
+    http_server {
+        enabled         on;
+        listen          8080;
+        dir             ./objs/nginx/html;
+    }
+
+    # ── WebRTC (optional, for browser-based ingest) ──────────────────────────────
+    rtc_server {
+        enabled         on;
+        listen          8000;
+        candidate       $CANDIDATE;
+    }
+
+    # ── Default virtual host ─────────────────────────────────────────────────────
+    vhost __defaultVhost__ {
+
+        # ── HLS output ───────────────────────────────────────────────────────────
+        hls {
+            enabled         on;
+            hls_path        ./objs/nginx/html;
+            hls_fragment    6;
+            hls_window      60;
+            hls_m3u8_file   [app]/[stream].m3u8;
+            hls_ts_file     [app]/[stream]-[seq].ts;
+            hls_cleanup     on;
+        }
+
+        # ── HTTP-FLV remux ───────────────────────────────────────────────────────
+        http_remux {
+            enabled     on;
+            mount       [vhost]/[app]/[stream].flv;
+        }
+
+        # ── SRT ingest ───────────────────────────────────────────────────────────
+        srt {
+            enabled     on;
+        }
+    }

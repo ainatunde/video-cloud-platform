@@ -1,0 +1,152 @@
+{
+  "uid": "scte35-markers",
+  "title": "SCTE-35 Markers",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "stream_id",
+        "label": "Stream",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "query": "SELECT DISTINCT stream_id FROM scte35_markers ORDER BY 1",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Markers Injected",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) AS value FROM scte35_markers WHERE $__timeFilter(time)",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Validated Markers",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) AS value FROM scte35_markers WHERE $__timeFilter(time) AND validated = TRUE",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "green" }
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "Markers by Type",
+      "type": "barchart",
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [
+        {
+          "rawSql": "SELECT splice_type, COUNT(*) AS count FROM scte35_markers WHERE $__timeFilter(time) GROUP BY splice_type ORDER BY count DESC",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "orientation": "vertical",
+        "barRadius": 0.0,
+        "groupWidth": 0.7,
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 }
+    },
+    {
+      "id": 4,
+      "title": "Validation Success Rate",
+      "type": "gauge",
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [
+        {
+          "rawSql": "SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE validated = TRUE) / NULLIF(COUNT(*), 0), 2) AS value FROM scte35_markers WHERE $__timeFilter(time)",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "green", "value": 95 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 }
+    },
+    {
+      "id": 5,
+      "title": "Markers Timeline",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "timescaledb" },
+      "targets": [
+        {
+          "rawSql": "SELECT time_bucket('1m', time) AS time, splice_type, COUNT(*) AS markers FROM scte35_markers WHERE $__timeFilter(time) GROUP BY 1, 2 ORDER BY 1",
+          "format": "time_series"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 }
+    }
+  ]
+}

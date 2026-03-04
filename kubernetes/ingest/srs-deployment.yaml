@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: srs
+  namespace: video-platform
+  labels:
+    app: srs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: srs
+  template:
+    metadata:
+      labels:
+        app: srs
+    spec:
+      containers:
+        - name: srs
+          image: video-platform/srs:latest
+          ports:
+            - containerPort: 1935
+              name: rtmp
+              protocol: TCP
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+            - containerPort: 8890
+              name: srt
+              protocol: UDP
+            - containerPort: 1985
+              name: api
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/v1/versions
+              port: 1985
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          volumeMounts:
+            - name: srs-config
+              mountPath: /etc/srs
+      volumes:
+        - name: srs-config
+          configMap:
+            name: srs-config

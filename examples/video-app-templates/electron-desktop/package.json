@@ -1,0 +1,33 @@
+{
+  "name": "video-cloud-desktop",
+  "version": "1.0.0",
+  "description": "Video Cloud Platform desktop player",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "electron": "^32.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.0"
+  },
+  "build": {
+    "appId": "io.videocloud.desktop",
+    "productName": "Video Cloud Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.video"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"]
+    },
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"name":"360p","width":640,"height":360,"video_bitrate":"500k","audio_bitrate":"96k","codec":"libx264","profile":"baseline","level":"3.0","preset":"fast","gop_size":60,"fps":30}

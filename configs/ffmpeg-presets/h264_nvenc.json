@@ -1,0 +1,1 @@
+{"name":"h264_nvenc","codec":"h264_nvenc","preset":"p4","rc":"vbr","cq":23,"bf":2,"b_ref_mode":"middle","temporal_aq":1,"rc_lookahead":20,"spatial_aq":1,"aq_strength":8}

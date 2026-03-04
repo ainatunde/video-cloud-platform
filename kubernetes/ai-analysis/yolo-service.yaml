@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: yolo-analyzer
+  namespace: video-platform
+  labels:
+    app: yolo-analyzer
+spec:
+  selector:
+    app: yolo-analyzer
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
