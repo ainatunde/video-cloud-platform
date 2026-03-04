@@ -9,7 +9,7 @@ import asyncpg
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:changeme@timescaledb:5432/platform")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://tsdb:changeme@timescaledb:5432/metrics")
 SRS_API_URL = os.getenv("SRS_API_URL", "http://srs:1985")
 COLLECT_INTERVAL = int(os.getenv("COLLECT_INTERVAL", "10"))
 

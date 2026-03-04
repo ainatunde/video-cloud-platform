@@ -188,6 +188,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - PORT=3000
@@ -221,6 +223,7 @@ services:
       - POSTGRES_PASSWORD=${TIMESCALE_PASSWORD:-changeme}
     volumes:
       - timescale-data:/var/lib/postgresql/data
+      - ./services/analytics/timescaledb/init.sql:/docker-entrypoint-initdb.d/01-analytics.sql:ro
     networks:
       - video-platform
     healthcheck:

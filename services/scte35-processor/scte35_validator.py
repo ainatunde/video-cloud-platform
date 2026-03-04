@@ -201,7 +201,9 @@ class SCTE35Validator:
 
         try:
             result = subprocess.run(
-                ["tsp", "--input", ts_file, "--plugin", "tables", "--scte35", "--output", "/dev/null"],
+                ["tsp", "-I", "file", ts_file,
+                 "-P", "tables", "--all-sections", "--scte35",
+                 "-O", "drop"],
                 capture_output=True,
                 text=True,
                 timeout=120,

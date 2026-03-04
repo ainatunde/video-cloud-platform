@@ -10,8 +10,9 @@ import logging
 import os
 import shutil
 import subprocess
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,17 +25,32 @@ logger = logging.getLogger(__name__)
 PACKAGER_BIN = os.environ.get("PACKAGER_BIN", "packager")
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "/output")
 BASE_URL = os.environ.get("BASE_URL", "http://localhost")
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "").split(",") if os.environ.get("CORS_ORIGINS") else ["*"]
+
+_manifest_gen = ManifestGenerator()
+_packager: Optional[ShakaPackager] = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    global _packager
+    try:
+        _packager = ShakaPackager()
+        logger.info("ShakaPackager initialised using binary: %s", PACKAGER_BIN)
+    except EnvironmentError as exc:
+        logger.warning("Shaka packager not available: %s — packaging endpoints will return 503", exc)
+    yield
+
 
 app = FastAPI(
     title="Shaka Packager Service",
     description="HLS/DASH packaging with SCTE-35 support",
     version="1.0.0",
+    lifespan=lifespan,
 )
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"]
 )
-
-_manifest_gen = ManifestGenerator()
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -167,19 +183,18 @@ class ShakaPackager:
         return f"{output_dir}/manifest.mpd"
 
 
-_packager = ShakaPackager()
-
-
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/health", tags=["ops"])
 async def health() -> Dict[str, Any]:
-    return {"status": "ok"}
+    return {"status": "ok", "packager_available": _packager is not None}
 
 
 @app.post("/package/hls", tags=["packaging"])
 async def package_hls(req: PackageRequest) -> Dict[str, Any]:
     """Package streams as HLS and optionally inject SCTE-35 EXT-X-DATERANGE tags."""
+    if _packager is None:
+        raise HTTPException(status_code=503, detail="Shaka packager binary not available")
     output_dir = f"{OUTPUT_DIR}/{req.stream_name}"
     try:
         master_playlist = _packager.package_hls(
@@ -197,6 +212,8 @@ async def package_hls(req: PackageRequest) -> Dict[str, Any]:
 @app.post("/package/dash", tags=["packaging"])
 async def package_dash(req: PackageRequest) -> Dict[str, Any]:
     """Package streams as MPEG-DASH."""
+    if _packager is None:
+        raise HTTPException(status_code=503, detail="Shaka packager binary not available")
     output_dir = f"{OUTPUT_DIR}/{req.stream_name}"
     try:
         mpd_path = _packager.package_dash(

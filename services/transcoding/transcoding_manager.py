@@ -10,8 +10,9 @@ import asyncio
 import logging
 import os
 import uuid
+from contextlib import asynccontextmanager
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,20 +24,33 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PROFILES = os.environ.get("ABR_PROFILES", "360p,480p,720p,1080p").split(",")
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "/output")
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "").split(",") if os.environ.get("CORS_ORIGINS") else ["*"]
+
+# In-memory job registry (replace with Redis for multi-replica deployments)
+_jobs: Dict[str, Dict[str, Any]] = {}
+_transcoder: Optional[FFmpegTranscoder] = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    global _transcoder
+    try:
+        _transcoder = FFmpegTranscoder()
+        logger.info("FFmpegTranscoder initialised")
+    except EnvironmentError as exc:
+        logger.warning("FFmpeg not available: %s — transcoding endpoints will return 503", exc)
+    yield
+
 
 app = FastAPI(
     title="Transcoding Manager",
     description="FFmpeg ABR transcoding job manager",
     version="1.0.0",
+    lifespan=lifespan,
 )
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"]
 )
-
-_transcoder = FFmpegTranscoder()
-
-# In-memory job registry (replace with Redis for multi-replica deployments)
-_jobs: Dict[str, Dict[str, Any]] = {}
 
 
 class JobStatus(str, Enum):
@@ -151,12 +165,18 @@ class TranscodingManager:
 
 @app.get("/health", tags=["ops"])
 async def health() -> Dict[str, Any]:
-    return {"status": "ok", "active_jobs": sum(1 for j in _jobs.values() if j["status"] == JobStatus.RUNNING)}
+    return {
+        "status": "ok",
+        "ffmpeg_available": _transcoder is not None,
+        "active_jobs": sum(1 for j in _jobs.values() if j["status"] == JobStatus.RUNNING),
+    }
 
 
 @app.post("/transcode/live", tags=["jobs"], status_code=202)
 async def start_live_job(req: LiveJobRequest) -> Dict[str, Any]:
     """Start a live ABR transcoding job."""
+    if _transcoder is None:
+        raise HTTPException(status_code=503, detail="FFmpeg not available")
     job = _make_job(
         "live",
         stream_name=req.stream_name,
@@ -171,6 +191,8 @@ async def start_live_job(req: LiveJobRequest) -> Dict[str, Any]:
 @app.post("/transcode/vod", tags=["jobs"], status_code=202)
 async def start_vod_job(req: VODJobRequest) -> Dict[str, Any]:
     """Start a VOD ABR transcoding job (runs in thread pool)."""
+    if _transcoder is None:
+        raise HTTPException(status_code=503, detail="FFmpeg not available")
     job = _make_job(
         "vod",
         input_file=req.input_file,
@@ -183,7 +205,7 @@ async def start_vod_job(req: VODJobRequest) -> Dict[str, Any]:
         job["status"] = JobStatus.RUNNING
         output_dir = f"{OUTPUT_DIR}/{req.output_name}"
         try:
-            await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda: _transcoder.transcode_vod(
                     req.input_file, output_dir, req.profiles, req.scte35_markers

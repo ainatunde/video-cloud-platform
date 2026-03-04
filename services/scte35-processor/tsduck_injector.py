@@ -79,7 +79,12 @@ class TSDuckInjector:
             pts_val = self.pts_from_timestamp(sp.pts_seconds)
             dur_val = self.duration_from_seconds(sp.duration_seconds)
 
-            table = ET.SubElement(root, "splice_info_section")
+            # TSDuck requires each SCTE-35 table wrapped in <SCTE35>
+            scte35_elem = ET.SubElement(root, "SCTE35")
+            scte35_elem.set("version", "0")
+            scte35_elem.set("current", "true")
+
+            table = ET.SubElement(scte35_elem, "splice_info_section")
             table.set("protocol_version", "0")
             table.set("pts_adjustment", "0")
             table.set("tier", "0xFFF")
@@ -146,11 +151,12 @@ class TSDuckInjector:
 
         cmd = [
             self._tsp,
-            "--input", input_ts,
-            "--plugin", "inject",
+            "-I", "file", input_ts,
+            "-P", "inject",
             "--pid", str(scte35_pid),
             "--xml", xml_path,
-            "--output", output_ts,
+            "--bitrate", "3000",
+            "-O", "file", output_ts,
         ]
 
         try:
@@ -182,11 +188,11 @@ class TSDuckInjector:
         """
         cmd = [
             self._tsp,
-            "--input", ts_file,
-            "--plugin", "tables",
+            "-I", "file", ts_file,
+            "-P", "tables",
             "--all-sections",
             "--scte35",
-            "--output", "/dev/null",
+            "-O", "drop",
         ]
 
         try:

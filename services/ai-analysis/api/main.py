@@ -8,8 +8,10 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
 import cv2
@@ -23,6 +25,10 @@ from content_analyzer import ContentAnalyzer
 from yolo_scene_detector import YOLOSceneDetector
 
 logger = logging.getLogger(__name__)
+
+# Restrict video file access to this directory (set to "" to disable)
+VIDEO_BASE_DIR = os.environ.get("VIDEO_BASE_DIR", "/data")
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "").split(",") if os.environ.get("CORS_ORIGINS") else ["*"]
 
 # ── Application-level singletons ─────────────────────────────────────────────
 _analyzer: ContentAnalyzer | None = None
@@ -50,7 +56,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -71,6 +77,23 @@ def _base64_to_frame(b64: str) -> np.ndarray:
     return cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
 
 
+def _validate_video_path(path: str) -> None:
+    """Reject paths that escape VIDEO_BASE_DIR to prevent path traversal."""
+    if not VIDEO_BASE_DIR:
+        return
+    try:
+        resolved = Path(path).resolve()
+        base = Path(VIDEO_BASE_DIR).resolve()
+        resolved.relative_to(base)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"video_path must be inside {VIDEO_BASE_DIR}",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid video_path: {exc}") from exc
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
@@ -87,6 +110,8 @@ async def analyze_frame(request: AnalysisRequest) -> AnalysisResponse:
 
     Returns YOLO detections and IAB content categories.
     """
+    if _analyzer is None:
+        raise HTTPException(status_code=503, detail="Model not loaded yet")
     if not request.image_base64:
         raise HTTPException(status_code=422, detail="image_base64 is required")
 
@@ -110,8 +135,11 @@ async def analyze_video(request: AnalysisRequest) -> AnalysisResponse:
 
     Returns all detected scene changes and the overall content categories.
     """
+    if _detector is None:
+        raise HTTPException(status_code=503, detail="Model not loaded yet")
     if not request.video_path:
         raise HTTPException(status_code=422, detail="video_path is required")
+    _validate_video_path(request.video_path)
 
     t0 = time.perf_counter()
     try:

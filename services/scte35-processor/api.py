@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
@@ -22,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DEFAULT_SPLICE_DURATION = float(os.environ.get("SCTE35_SPLICE_DURATION", "30"))
+# Restrict TS file operations to this directory (set to "" to disable the check)
+TS_BASE_DIR = os.environ.get("TS_BASE_DIR", "/data")
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "").split(",") if os.environ.get("CORS_ORIGINS") else ["*"]
 
 app = FastAPI(
     title="SCTE-35 Processor",
@@ -31,13 +35,34 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 _handler = ThreefiveHandler()
 _validator = SCTE35Validator()
+
+
+def _validate_ts_path(path: str) -> None:
+    """
+    Reject paths that escape the allowed TS_BASE_DIR directory.
+
+    Raises HTTPException(400) on any path traversal attempt.
+    """
+    if not TS_BASE_DIR:
+        return
+    try:
+        resolved = Path(path).resolve()
+        base = Path(TS_BASE_DIR).resolve()
+        resolved.relative_to(base)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File path must be inside {TS_BASE_DIR}",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid path: {exc}") from exc
 
 
 # ── Request / response models ─────────────────────────────────────────────────
@@ -83,6 +108,8 @@ async def health() -> Dict[str, Any]:
 @app.post("/inject", tags=["injection"])
 async def inject_markers(req: InjectRequest) -> Dict[str, Any]:
     """Inject SCTE-35 splice_insert markers into an MPEG-TS file."""
+    _validate_ts_path(req.input_ts)
+    _validate_ts_path(req.output_ts)
     injector = TSDuckInjector()
     splice_points = [
         SplicePoint(
@@ -137,6 +164,7 @@ async def decode_marker(req: DecodeRequest) -> Dict[str, Any]:
 async def validate(req: ValidateRequest) -> Dict[str, Any]:
     """Validate a SCTE-35 message or an entire MPEG-TS file."""
     if req.ts_file:
+        _validate_ts_path(req.ts_file)
         return _validator.generate_validation_report(req.ts_file)
 
     if req.scte35_data:

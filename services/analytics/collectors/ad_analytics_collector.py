@@ -10,7 +10,7 @@ import redis.asyncio as aioredis
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:changeme@timescaledb:5432/platform")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://tsdb:changeme@timescaledb:5432/metrics")
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
 AD_EVENTS_KEY = "ad_events"
 BATCH_SIZE = int(os.getenv("AD_BATCH_SIZE", "50"))

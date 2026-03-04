@@ -59,8 +59,9 @@ app.use(
 app.use(
   '/api/analytics',
   createProxyMiddleware({
-    target: process.env.ANALYTICS_URL || 'http://timescaledb:5432',
+    target: process.env.GRAFANA_URL || 'http://grafana:3000',
     changeOrigin: true,
+    pathRewrite: { '^/api/analytics': '' },
   }),
 );
 

@@ -4,10 +4,10 @@ datasources:
     type: postgres
     uid: timescaledb
     url: timescaledb:5432
-    database: platform
-    user: postgres
+    database: metrics
+    user: tsdb
     secureJsonData:
-      password: "${POSTGRES_PASSWORD}"
+      password: "${TIMESCALE_PASSWORD}"
     jsonData:
       sslmode: disable
       maxOpenConns: 10

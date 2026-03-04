@@ -203,7 +203,7 @@ class YOLOSceneDetector:
                 if frame_idx % sample_every_n == 0:
                     timestamp = frame_idx / fps
                     # Offload blocking inference to a thread pool
-                    current_detections = await asyncio.get_event_loop().run_in_executor(
+                    current_detections = await asyncio.get_running_loop().run_in_executor(
                         None, self.detect, frame
                     )
                     is_change, score = self.is_scene_change(current_detections)
