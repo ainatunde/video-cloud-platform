@@ -57,8 +57,12 @@ app.use(
 // Serve React app
 app.use(express.static(path.join(__dirname, '../dist')));
 
-// SPA fallback
-app.get('*', (req, res) => {
+// SPA fallback — restricted to HTML-accepting requests only
+app.get('*', (req, res, next) => {
+  const accept = req.headers.accept || '';
+  if (!accept.includes('text/html')) {
+    return next();
+  }
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
