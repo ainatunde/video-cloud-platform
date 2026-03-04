@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scte35-processor
+  namespace: video-platform
+  labels:
+    app: scte35-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scte35-processor
+  template:
+    metadata:
+      labels:
+        app: scte35-processor
+    spec:
+      containers:
+        - name: scte35-processor
+          image: video-platform/scte35-processor:latest
+          ports:
+            - containerPort: 8001
+              name: http
+          env:
+            - name: YOLO_URL
+              value: "http://yolo-analyzer:8000"
+            - name: SRS_URL
+              value: "http://srs:1985"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 15
+            periodSeconds: 30

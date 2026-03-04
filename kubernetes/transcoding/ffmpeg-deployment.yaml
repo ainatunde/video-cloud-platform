@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ffmpeg-transcoder
+  namespace: video-platform
+  labels:
+    app: ffmpeg-transcoder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ffmpeg-transcoder
+  template:
+    metadata:
+      labels:
+        app: ffmpeg-transcoder
+    spec:
+      containers:
+        - name: ffmpeg-transcoder
+          image: video-platform/ffmpeg-transcoder:latest
+          ports:
+            - containerPort: 8002
+              name: http
+          env:
+            - name: HARDWARE_ACCEL
+              value: "false"
+            - name: SRS_URL
+              value: "http://srs:1985"
+            - name: SCTE35_URL
+              value: "http://scte35-processor:8001"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+          resources:
+            requests:
+              cpu: "2"
+              memory: "2Gi"
+            limits:
+              cpu: "8"
+              memory: "8Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          volumeMounts:
+            - name: ffmpeg-config
+              mountPath: /app/presets
+      volumes:
+        - name: ffmpeg-config
+          configMap:
+            name: ffmpeg-presets

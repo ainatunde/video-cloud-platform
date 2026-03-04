@@ -1,0 +1,44 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'srs'
+    static_configs:
+      - targets: ['srs:1985']
+    metrics_path: /api/v1/metrics
+
+  - job_name: 'yolo-analyzer'
+    static_configs:
+      - targets: ['yolo-analyzer:8000']
+    metrics_path: /metrics
+
+  - job_name: 'scte35-processor'
+    static_configs:
+      - targets: ['scte35-processor:8001']
+    metrics_path: /metrics
+
+  - job_name: 'ffmpeg-transcoder'
+    static_configs:
+      - targets: ['ffmpeg-transcoder:8002']
+    metrics_path: /metrics
+
+  - job_name: 'ad-server'
+    static_configs:
+      - targets: ['ad-server:3000']
+    metrics_path: /metrics
+
+  - job_name: 'dashboard'
+    static_configs:
+      - targets: ['dashboard:3000']
+    metrics_path: /metrics
+
+  - job_name: 'shaka-packager'
+    static_configs:
+      - targets: ['shaka-packager:8003']
+    metrics_path: /metrics
+
+  - job_name: 'timescaledb'
+    static_configs:
+      - targets: ['timescaledb:9187']
+    metrics_path: /metrics

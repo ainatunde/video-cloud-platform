@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shaka-packager
+  namespace: video-platform
+  labels:
+    app: shaka-packager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shaka-packager
+  template:
+    metadata:
+      labels:
+        app: shaka-packager
+    spec:
+      containers:
+        - name: shaka-packager
+          image: video-platform/shaka-packager:latest
+          ports:
+            - containerPort: 8003
+              name: http
+          env:
+            - name: TRANSCODER_URL
+              value: "http://ffmpeg-transcoder:8002"
+            - name: OUTPUT_DIR
+              value: "/var/www/streams"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 15
+            periodSeconds: 30

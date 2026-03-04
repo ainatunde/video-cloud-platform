@@ -1,0 +1,1 @@
+{"name":"h264_cpu","codec":"libx264","preset":"fast","crf":23,"profile":"high","level":"4.1","x264_opts":"keyint=60:min-keyint=60:scenecut=0"}

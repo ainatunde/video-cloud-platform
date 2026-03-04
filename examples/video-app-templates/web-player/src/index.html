@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Cloud Platform — Web Player</title>
+
+  <!-- Video.js -->
+  <link href="https://vjs.zencdn.net/8.6.0/video-js.css" rel="stylesheet">
+  <script src="https://vjs.zencdn.net/8.6.0/video.min.js"></script>
+
+  <!-- HLS.js for browsers without native HLS (Firefox, older Chrome) -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
+
+  <!-- Google IMA SDK for ad integration -->
+  <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+
+  <!-- videojs-contrib-ads (IMA bridge) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.css" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      color: #60a5fa;
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .player-wrapper {
+      width: 100%;
+      max-width: 960px;
+      position: relative;
+    }
+
+    #video-player {
+      width: 100%;
+      aspect-ratio: 16/9;
+    }
+
+    .stats-overlay {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #a0aec0;
+      font-size: 0.7rem;
+      font-family: monospace;
+      padding: 6px 10px;
+      border-radius: 4px;
+      line-height: 1.6;
+      pointer-events: none;
+      display: none;
+    }
+
+    .stats-overlay.visible { display: block; }
+
+    .config-panel {
+      width: 100%;
+      max-width: 960px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .config-panel h2 {
+      font-size: 1rem;
+      color: #94a3b8;
+      margin-bottom: 1rem;
+    }
+
+    .config-row {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+      align-items: center;
+    }
+
+    .config-row label {
+      width: 140px;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      flex-shrink: 0;
+    }
+
+    .config-row input[type="text"],
+    .config-row input[type="url"] {
+      flex: 1;
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #e2e8f0;
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      font-family: monospace;
+    }
+
+    .config-row input[type="checkbox"] {
+      accent-color: #60a5fa;
+    }
+
+    .btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+
+    .btn:hover { background: #1d4ed8; }
+    .btn.secondary { background: #475569; }
+    .btn.secondary:hover { background: #64748b; }
+
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Video Cloud Platform — Web Player</h1>
+
+  <div class="player-wrapper">
+    <video
+      id="video-player"
+      class="video-js vjs-default-skin vjs-big-play-centered"
+      controls
+      preload="auto"
+      data-setup='{}'>
+    </video>
+
+    <div class="stats-overlay" id="stats-overlay">
+      <div>Resolution: <span id="stat-resolution">—</span></div>
+      <div>Bitrate: <span id="stat-bitrate">—</span></div>
+      <div>Buffer: <span id="stat-buffer">—</span></div>
+      <div>Dropped: <span id="stat-dropped">—</span></div>
+    </div>
+  </div>
+
+  <div class="config-panel">
+    <h2>Stream Configuration</h2>
+
+    <div class="config-row">
+      <label>HLS Stream URL</label>
+      <input type="url" id="stream-url"
+        value="http://localhost:8080/live/stream1.m3u8"
+        placeholder="http://host:8080/live/stream.m3u8">
+    </div>
+
+    <div class="config-row">
+      <label>VAST Ad URL</label>
+      <input type="url" id="ad-url"
+        value="http://localhost:3000/ads/vast"
+        placeholder="http://ad-server:3000/ads/vast">
+    </div>
+
+    <div class="config-row">
+      <label>Ads Enabled</label>
+      <input type="checkbox" id="ads-enabled" checked>
+    </div>
+
+    <div class="config-row">
+      <label>Show Stats</label>
+      <input type="checkbox" id="show-stats">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" onclick="loadStream()">Load Stream</button>
+      <button class="btn secondary" onclick="toggleStats()">Toggle Stats</button>
+    </div>
+  </div>
+
+  <script src="player.js"></script>
+  <script src="ad-integration.js"></script>
+</body>
+</html>

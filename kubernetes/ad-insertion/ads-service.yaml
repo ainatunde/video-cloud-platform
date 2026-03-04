@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ad-server
+  namespace: video-platform
+  labels:
+    app: ad-server
+spec:
+  selector:
+    app: ad-server
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      protocol: TCP
