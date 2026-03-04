@@ -1,0 +1,408 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Video Cloud Distribution Platform — Production Stack
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-restart: &always-restart
+  restart: unless-stopped
+
+services:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # SRS — RTMP / SRT ingest + HLS origin
+  # ───────────────────────────────────────────────────────────────────────────
+  srs:
+    <<: *always-restart
+    build:
+      context: ./services/ingest
+      dockerfile: Dockerfile
+    image: video-platform/srs:latest
+    container_name: srs
+    ports:
+      - "${RTMP_PORT:-1935}:1935"       # RTMP ingest
+      - "${HTTP_API_PORT:-8080}:8080"   # HTTP server / HLS origin
+      - "${SRT_PORT:-8890}:8890/udp"    # SRT ingest
+      - "1985:1985"                     # HTTP API
+    volumes:
+      - video-storage:/usr/local/srs/objs/nginx/html
+    environment:
+      - SRS_HTTP_API_AUTH=${SRS_HTTP_API_AUTH:-}
+    networks:
+      - video-platform
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1985/api/v1/versions"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # YOLO AI Analyzer — scene detection + content classification
+  # ───────────────────────────────────────────────────────────────────────────
+  yolo-analyzer:
+    <<: *always-restart
+    build:
+      context: ./services/ai-analysis
+      dockerfile: Dockerfile
+    image: video-platform/yolo-analyzer:latest
+    container_name: yolo-analyzer
+    environment:
+      - GPU_ENABLED=${GPU_ENABLED:-false}
+      - YOLO_MODEL=${YOLO_MODEL:-yolov8n.pt}
+      - MODEL_CACHE_DIR=/app/models
+    volumes:
+      - ./models:/app/models
+    networks:
+      - video-platform
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # SCTE-35 Processor — marker injection & validation
+  # ───────────────────────────────────────────────────────────────────────────
+  scte35-processor:
+    <<: *always-restart
+    build:
+      context: ./services/scte35-processor
+      dockerfile: Dockerfile
+    image: video-platform/scte35-processor:latest
+    container_name: scte35-processor
+    depends_on:
+      yolo-analyzer:
+        condition: service_healthy
+    environment:
+      - YOLO_ANALYZER_URL=http://yolo-analyzer:8000
+      - SCTE35_SPLICE_DURATION=${SCTE35_SPLICE_DURATION:-30}
+    networks:
+      - video-platform
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # FFmpeg Transcoder — ABR ladder + keyframe alignment
+  # ───────────────────────────────────────────────────────────────────────────
+  ffmpeg-transcoder:
+    <<: *always-restart
+    build:
+      context: ./services/transcoding
+      dockerfile: Dockerfile
+    image: video-platform/ffmpeg-transcoder:latest
+    container_name: ffmpeg-transcoder
+    depends_on:
+      srs:
+        condition: service_healthy
+      scte35-processor:
+        condition: service_healthy
+    environment:
+      - HARDWARE_ACCEL=${HARDWARE_ACCEL:-false}
+      - ABR_PROFILES=${ABR_PROFILES:-360p,480p,720p,1080p}
+      - SRS_RTMP_URL=rtmp://srs:1935
+      - SCTE35_PROCESSOR_URL=http://scte35-processor:8001
+      - HLS_SEGMENT_DURATION=${HLS_SEGMENT_DURATION:-6}
+      - OUTPUT_DIR=/output
+    volumes:
+      - video-storage:/output
+    networks:
+      - video-platform
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Shaka Packager — HLS/DASH output with SCTE-35 tags
+  # ───────────────────────────────────────────────────────────────────────────
+  shaka-packager:
+    <<: *always-restart
+    build:
+      context: ./services/packaging
+      dockerfile: Dockerfile
+    image: video-platform/shaka-packager:latest
+    container_name: shaka-packager
+    depends_on:
+      ffmpeg-transcoder:
+        condition: service_healthy
+    environment:
+      - HLS_SEGMENT_DURATION=${HLS_SEGMENT_DURATION:-6}
+      - TRANSCODER_URL=http://ffmpeg-transcoder:8002
+      - SCTE35_PROCESSOR_URL=http://scte35-processor:8001
+      - OUTPUT_DIR=/output
+      - BASE_URL=${BASE_URL:-http://localhost}
+    volumes:
+      - video-storage:/output
+    networks:
+      - video-platform
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Ad Insertion Service — SSAI engine, VAST, ad decisions
+  # ───────────────────────────────────────────────────────────────────────────
+  ad-server:
+    <<: *always-restart
+    build:
+      context: ./services/ad-insertion
+      dockerfile: Dockerfile
+    image: video-platform/ad-server:latest
+    container_name: ad-server
+    ports:
+      - "${AD_SERVER_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:changeme@postgres:5432/platform}
+      - REDIS_URL=redis://redis:6379
+      - AD_SERVER_URL=${AD_SERVER_URL:-}
+      - VAST_URL=${VAST_URL:-}
+      - JWT_SECRET=${JWT_SECRET:-changeme}
+      - SCTE35_PROCESSOR_URL=http://scte35-processor:8001
+      - YOLO_ANALYZER_URL=http://yolo-analyzer:8000
+    networks:
+      - video-platform
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # TimescaleDB — time-series metrics store
+  # ───────────────────────────────────────────────────────────────────────────
+  timescaledb:
+    <<: *always-restart
+    image: timescale/timescaledb:latest-pg14
+    container_name: timescaledb
+    environment:
+      - POSTGRES_DB=metrics
+      - POSTGRES_USER=tsdb
+      - POSTGRES_PASSWORD=${TIMESCALE_PASSWORD:-changeme}
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+    networks:
+      - video-platform
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tsdb -d metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Grafana — analytics dashboards
+  # ───────────────────────────────────────────────────────────────────────────
+  grafana:
+    <<: *always-restart
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-changeme}
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:${GRAFANA_PORT:-3001}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - video-platform
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Prometheus — metrics scraping
+  # ───────────────────────────────────────────────────────────────────────────
+  prometheus:
+    <<: *always-restart
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    networks:
+      - video-platform
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Dashboard — operator web UI
+  # ───────────────────────────────────────────────────────────────────────────
+  dashboard:
+    <<: *always-restart
+    build:
+      context: ./services/dashboard
+      dockerfile: Dockerfile
+    image: video-platform/dashboard:latest
+    container_name: dashboard
+    ports:
+      - "${DASHBOARD_PORT:-3002}:3002"
+    depends_on:
+      - ad-server
+      - grafana
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3002
+      - AD_SERVER_URL=http://ad-server:3000
+      - GRAFANA_URL=http://grafana:3000
+      - PROMETHEUS_URL=http://prometheus:9090
+    networks:
+      - video-platform
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # PostgreSQL — ad inventory, user data, event logs
+  # ───────────────────────────────────────────────────────────────────────────
+  postgres:
+    <<: *always-restart
+    image: postgres:14-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=platform
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - video-platform
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Redis — caching, job queues
+  # ───────────────────────────────────────────────────────────────────────────
+  redis:
+    <<: *always-restart
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - video-platform
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Nginx — reverse proxy, TLS termination, HLS/DASH delivery
+  # ───────────────────────────────────────────────────────────────────────────
+  nginx:
+    <<: *always-restart
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - srs
+      - ad-server
+      - dashboard
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./config/nginx/ssl:/etc/nginx/ssl:ro
+      - video-storage:/var/www/hls:ro
+    networks:
+      - video-platform
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging: *default-logging
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Networks
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  video-platform:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Volumes
+# ─────────────────────────────────────────────────────────────────────────────
+volumes:
+  video-storage:
+    driver: local
+  timescale-data:
+    driver: local
+  grafana-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local

@@ -1,0 +1,30 @@
+{
+  "ad_servers": [
+    {
+      "name": "google_ad_manager",
+      "type": "vast",
+      "enabled": false,
+      "url": "",
+      "timeout_ms": 2000,
+      "description": "Google Ad Manager VAST tag URL — set url and enabled=true to activate"
+    },
+    {
+      "name": "spotx",
+      "type": "vast",
+      "enabled": false,
+      "url": "",
+      "timeout_ms": 2000,
+      "description": "SpotX VAST tag URL — set url and enabled=true to activate"
+    },
+    {
+      "name": "local",
+      "type": "local",
+      "enabled": true,
+      "fill_rate": 1.0,
+      "description": "Local synthetic ad filler — always on as fallback"
+    }
+  ],
+  "default_ad_duration": 30,
+  "max_ad_pods": 3,
+  "vast_timeout_ms": 2000
+}
