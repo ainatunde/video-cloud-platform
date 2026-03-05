@@ -1,11 +1,10 @@
 FROM python:3.11-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
-    curl -o /tmp/install-tsduck.sh https://tsduck.io/install.sh && \
-    bash /tmp/install-tsduck.sh && \
-    rm -rf /var/lib/apt/lists/* /tmp/install-tsduck.sh
-
+    apt-get install -y --no-install-recommends wget ca-certificates && \
+    wget https://github.com/tsduck/tsduck/releases/download/v3.43-4549/tsduck_3.43-4549.ubuntu25_amd64.deb && \
+    apt-get install -y ./tsduck_3.43-4549.ubuntu25_amd64.deb && \
+    rm tsduck_3.43-4549.ubuntu25_amd64.deb
 WORKDIR /app
 
 COPY requirements.txt .
