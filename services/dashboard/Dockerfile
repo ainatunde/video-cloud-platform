@@ -5,7 +5,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:20
 WORKDIR /app
 COPY --from=builder /app/server ./server
 COPY --from=builder /app/dist ./dist
