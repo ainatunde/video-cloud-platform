@@ -2,9 +2,9 @@ FROM python:3.11-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends wget ca-certificates && \
-    wget https://github.com/tsduck/tsduck/releases/download/v3.36-2576/tsduck_3.36-2576_amd64.deb && \
-    apt-get install -y ./tsduck_3.36-2576_amd64.deb && \
-    rm tsduck_3.36-2576_amd64.deb
+    wget https://github.com/tsduck/tsduck/releases/download/v3.43-4549/tsduck_3.43-4549.ubuntu25_arm64.deb && \
+    apt-get install -y ./tsduck_3.43-4549.ubuntu25_arm64.deb && \
+    rm tsduck_3.43-4549.ubuntu25_arm64.deb
 WORKDIR /app
 
 COPY requirements.txt .
