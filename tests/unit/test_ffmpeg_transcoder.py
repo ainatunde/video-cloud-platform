@@ -42,3 +42,49 @@ def test_load_preset_480p():
 def test_load_preset_invalid():
     with pytest.raises(FileNotFoundError):
         _ft._load_preset('nonexistent_profile')
+
+
+# ── Path traversal prevention ─────────────────────────────────────────────────
+
+def test_load_preset_path_traversal_dots():
+    """Preset names containing path separators must be rejected."""
+    with pytest.raises(ValueError):
+        _ft._load_preset('../../etc/passwd')
+
+
+def test_load_preset_path_traversal_slash():
+    with pytest.raises(ValueError):
+        _ft._load_preset('subdir/1080p')
+
+
+def test_load_preset_leading_dot():
+    """A name starting with '.' must be rejected."""
+    with pytest.raises(ValueError):
+        _ft._load_preset('.hidden')
+
+
+def test_load_preset_empty_string():
+    with pytest.raises(ValueError):
+        _ft._load_preset('')
+
+
+# ── Bitrate parser ────────────────────────────────────────────────────────────
+
+def test_parse_bitrate_k_suffix():
+    assert _ft._parse_bitrate_kbps('4500k') == 4500
+
+
+def test_parse_bitrate_m_suffix():
+    assert _ft._parse_bitrate_kbps('2m') == 2000
+
+
+def test_parse_bitrate_m_float():
+    assert _ft._parse_bitrate_kbps('2.5m') == 2500
+
+
+def test_parse_bitrate_bare_number():
+    assert _ft._parse_bitrate_kbps('1000') == 1000
+
+
+def test_parse_bitrate_uppercase():
+    assert _ft._parse_bitrate_kbps('500K') == 500

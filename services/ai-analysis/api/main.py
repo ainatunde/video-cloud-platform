@@ -188,7 +188,7 @@ async def ws_stream_analysis(websocket: WebSocket) -> None:
     try:
         config = await websocket.receive_json()
         stream_url = config.get("stream_url")
-        sample_n = int(config.get("sample_every_n", 15))
+        sample_n = max(1, int(config.get("sample_every_n", 15)))
 
         if not stream_url:
             await websocket.send_json({"error": "stream_url is required"})

@@ -1,42 +1,148 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Root ────────────────────────────────────────────────────────────────── */
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  background: #0f172a;
+  color: #e2e8f0;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.dashboard { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.dash-header {
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+.dash-header-left { display: flex; align-items: center; gap: 0.75rem; }
+.dash-logo { font-size: 1.5rem; }
+.dash-header-left h1 { font-size: 1.25rem; font-weight: 700; color: #f1f5f9; }
+
+.platform-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.badge-all-up  { background: #166534; color: #bbf7d0; }
+.badge-partial { background: #92400e; color: #fde68a; }
+.badge-down    { background: #7f1d1d; color: #fecaca; }
+
+.dash-header-right { display: flex; align-items: center; gap: 0.75rem; }
+.refresh-label { font-size: 0.8rem; color: #64748b; }
+.btn {
+  background: #334155; color: #e2e8f0;
+  border: 1px solid #475569;
+  padding: 0.35rem 0.75rem; border-radius: 6px;
+  cursor: pointer; font-size: 0.8rem;
+}
+.btn:hover { background: #475569; }
+
+/* ── Main ────────────────────────────────────────────────────────────────── */
+.dash-main {
+  flex: 1;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* ── Panel ───────────────────────────────────────────────────────────────── */
+.panel {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+.panel-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.875rem;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* ── Service health grid ─────────────────────────────────────────────────── */
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.625rem;
 }
+.svc-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex; flex-direction: column; gap: 0.2rem;
+}
+.svc-card.svc-up   { border-color: #166534; }
+.svc-card.svc-down { border-color: #7f1d1d; }
 
-.card {
-  padding: 2em;
+.svc-dot {
+  width: 8px; height: 8px; border-radius: 50%; margin-bottom: 0.25rem;
 }
+.svc-up   .svc-dot { background: #22c55e; }
+.svc-down .svc-dot { background: #ef4444; }
+.svc-loading .svc-dot { background: #64748b; }
 
-.read-the-docs {
-  color: #888;
+.svc-name   { font-size: 0.875rem; font-weight: 600; }
+.svc-detail { font-size: 0.75rem; color: #64748b; }
+
+/* ── Two-column layout ───────────────────────────────────────────────────── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
 }
+@media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.tbl th {
+  text-align: left; padding: 0.4rem 0.625rem;
+  color: #64748b; border-bottom: 1px solid #334155;
+}
+.tbl td { padding: 0.4rem 0.625rem; border-bottom: 1px solid #1e293b; }
+.tbl tr:last-child td { border-bottom: none; }
+
+.empty { color: #64748b; font-size: 0.85rem; text-align: center; padding: 1rem; }
+
+/* ── Job badge ───────────────────────────────────────────────────────────── */
+.job-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem; border-radius: 4px;
+  font-size: 0.72rem; font-weight: 600;
+}
+.job-running   { background: #1e3a5f; color: #60a5fa; }
+.job-completed { background: #14532d; color: #86efac; }
+.job-failed    { background: #7f1d1d; color: #fca5a5; }
+.job-queued    { background: #78350f; color: #fcd34d; }
+.job-cancelled { background: #1f2937; color: #9ca3af; }
+
+.mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.8rem; }
+
+/* ── Quick-links grid ────────────────────────────────────────────────────── */
+.links-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.625rem;
+}
+.link-card {
+  background: #0f172a;
+  border: 1px solid #334155; border-radius: 6px;
+  padding: 0.875rem 1rem;
+  display: flex; align-items: center; gap: 0.625rem;
+  text-decoration: none; color: #cbd5e1;
+  font-size: 0.875rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+.link-card:hover { border-color: #60a5fa; background: #1e3a5f; color: #f1f5f9; }
+.link-icon { font-size: 1.2rem; }

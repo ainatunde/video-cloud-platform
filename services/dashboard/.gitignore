@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Re-include TypeScript source files ignored by the top-level *.ts rule (MPEG-TS segments)
+!*.ts
+!*.tsx

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 from contextlib import asynccontextmanager
@@ -16,7 +17,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from manifest_generator import ManifestGenerator
 
@@ -61,6 +62,20 @@ class InputStream(BaseModel):
     stream_type: str = Field("video", description="video | audio")
     profile_name: str = Field(..., description="ABR profile name, e.g. '720p'")
 
+    @field_validator("profile_name")
+    @classmethod
+    def _safe_profile_name(cls, v: str) -> str:
+        if not re.match(r'^[A-Za-z0-9_\-]+$', v):
+            raise ValueError("profile_name must contain only alphanumeric characters, underscores, and hyphens")
+        return v
+
+    @field_validator("path")
+    @classmethod
+    def _no_traversal_in_path(cls, v: str) -> str:
+        if ".." in Path(v).parts:
+            raise ValueError("path must not contain '..' components")
+        return v
+
 
 class PackageRequest(BaseModel):
     stream_name: str = Field(..., description="Output directory name under OUTPUT_DIR")
@@ -69,6 +84,13 @@ class PackageRequest(BaseModel):
     scte35_markers: Optional[List[Dict[str, Any]]] = Field(
         None, description="List of SCTE-35 marker dicts for EXT-X-DATERANGE injection"
     )
+
+    @field_validator("stream_name")
+    @classmethod
+    def _safe_stream_name(cls, v: str) -> str:
+        if not re.match(r'^[A-Za-z0-9_\-]+$', v):
+            raise ValueError("stream_name must contain only alphanumeric characters, underscores, and hyphens")
+        return v
 
 
 # ── Shaka Packager wrapper ────────────────────────────────────────────────────

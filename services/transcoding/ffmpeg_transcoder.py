@@ -32,8 +32,27 @@ _HW_CODEC_MAP: Dict[str, tuple[str, str]] = {
 }
 
 
+def _parse_bitrate_kbps(bitrate_str: str) -> int:
+    """Parse a bitrate string such as '4500k', '2m', or '2500' and return kbps."""
+    s = bitrate_str.lower().strip()
+    if s.endswith("m"):
+        return int(float(s[:-1]) * 1000)
+    elif s.endswith("k"):
+        return int(s[:-1])
+    else:
+        return int(s)  # bare number treated as kbps
+
+
 def _load_preset(name: str) -> dict:
-    """Load an ABR preset JSON file by name (e.g. '1080p')."""
+    """Load an ABR preset JSON file by name (e.g. '1080p').
+
+    Raises:
+        ValueError: if *name* contains path separators or leading dots.
+        FileNotFoundError: if the preset JSON file does not exist.
+    """
+    # Prevent path traversal: the name must be a plain filename component only.
+    if not name or Path(name).name != name or name.startswith("."):
+        raise ValueError(f"Invalid preset name: {name!r}")
     path = PRESETS_DIR / f"{name}.json"
     if not path.exists():
         raise FileNotFoundError(f"Preset not found: {path}")
@@ -134,7 +153,7 @@ class FFmpegTranscoder:
                 f"-vf:{idx}", scale,
                 f"-b:v:{idx}", preset["video_bitrate"],
                 f"-maxrate:{idx}", preset["video_bitrate"],
-                f"-bufsize:{idx}", str(int(preset["video_bitrate"].rstrip("k")) * 2) + "k",
+                f"-bufsize:{idx}", str(_parse_bitrate_kbps(preset["video_bitrate"]) * 2) + "k",
                 f"-profile:v:{idx}", preset.get("profile", "main"),
                 f"-level:{idx}", str(preset.get("level", "3.1")),
                 f"-preset:{idx}", preset.get("preset", "fast"),
