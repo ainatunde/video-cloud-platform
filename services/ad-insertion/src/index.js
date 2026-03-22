@@ -121,8 +121,8 @@ app.get('/ads/vast/:ad_id', async (req, res) => {
 app.post('/ads/impression/:ad_id', async (req, res) => {
   try {
     const { ad_id } = req.params;
-    const { stream_id, position_ms } = req.body || {};
-    await ssaiEngine.trackImpressions(ad_id, []);
+    const { stream_id, position_ms, tracking_urls } = req.body || {};
+    await ssaiEngine.trackImpressions(ad_id, Array.isArray(tracking_urls) ? tracking_urls : []);
     logger.info({ ad_id, stream_id, position_ms }, 'Impression recorded');
     res.status(204).send();
   } catch (err) {

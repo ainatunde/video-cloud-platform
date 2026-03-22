@@ -6,7 +6,7 @@ COMPOSE        := docker compose
 COMPOSE_DEV    := docker compose -f docker-compose.yml -f docker-compose.dev.yml
 KUBECTL        := kubectl
 
-.PHONY: help up down dev build logs ps setup deploy test-stream health clean \
+.PHONY: help up down dev build logs ps setup deploy test test-stream health clean \
         k8s-deploy k8s-delete
 
 ## help        : Show this help message
@@ -59,6 +59,12 @@ deploy:
 	@echo "▶  Deploying..."
 	@bash scripts/deploy.sh
 	@echo "✔  Deploy complete."
+
+## test        : Run unit and integration tests
+test:
+	@echo "▶  Running tests..."
+	@python3 -m pytest tests/ -v
+	@echo "✔  Tests complete."
 
 ## test-stream : Push a synthetic RTMP test stream via FFmpeg
 test-stream:

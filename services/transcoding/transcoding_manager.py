@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import uuid
 from contextlib import asynccontextmanager
 from enum import Enum
@@ -16,7 +17,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ffmpeg_transcoder import FFmpegTranscoder
 
@@ -69,12 +70,26 @@ class LiveJobRequest(BaseModel):
     profiles: List[str] = Field(default_factory=lambda: DEFAULT_PROFILES)
     scte35_markers: List[float] = Field(default_factory=list, description="PTS timestamps for keyframe forcing")
 
+    @field_validator("stream_name")
+    @classmethod
+    def _safe_stream_name(cls, v: str) -> str:
+        if not re.match(r'^[A-Za-z0-9_\-]+$', v):
+            raise ValueError("stream_name must contain only alphanumeric characters, underscores, and hyphens")
+        return v
+
 
 class VODJobRequest(BaseModel):
     input_file: str = Field(..., description="Absolute path to input video file")
     output_name: str = Field(..., description="Output directory name under OUTPUT_DIR")
     profiles: List[str] = Field(default_factory=lambda: DEFAULT_PROFILES)
     scte35_markers: List[float] = Field(default_factory=list)
+
+    @field_validator("output_name")
+    @classmethod
+    def _safe_output_name(cls, v: str) -> str:
+        if not re.match(r'^[A-Za-z0-9_\-]+$', v):
+            raise ValueError("output_name must contain only alphanumeric characters, underscores, and hyphens")
+        return v
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
